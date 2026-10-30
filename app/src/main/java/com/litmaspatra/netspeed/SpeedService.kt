@@ -7,6 +7,12 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.Typeface
+import android.graphics.drawable.Icon
 import android.net.TrafficStats
 import android.os.Build
 import android.os.Handler
@@ -81,7 +87,7 @@ class SpeedService : Service() {
         val (downNum, downUnit) = fmt(down)
         val (upNum, upUnit) = fmt(up)
 
-        // Build RemoteViews for a compact custom layout
+        // RemoteViews for expanded shade
         val rv = RemoteViews(packageName, R.layout.notification_speed)
         rv.setTextViewText(R.id.tvSpeed, "↓ $downNum  ↑ $upNum")
         rv.setTextViewText(R.id.tvUnit, "$downUnit / $upUnit")
@@ -90,9 +96,12 @@ class SpeedService : Service() {
             this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE
         )
 
+        // Dynamic status‑bar icon showing download speed
+        val icon = makeSpeedIcon(downNum, downUnit)
+
         return NotificationCompat.Builder(this, CH)
-            .setSmallIcon(R.drawable.ic_notif) // simple white square icon
-            .setCustomContentView(rv)           // only this view appears in the shade
+            .setSmallIcon(icon)
+            .setCustomContentView(rv)
             .setContentTitle("")
             .setContentText("")
             .setOngoing(true)
@@ -102,6 +111,25 @@ class SpeedService : Service() {
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setCategory(NotificationCompat.CATEGORY_STATUS)
             .build()
+    }
+
+    /** Draw the current speed onto a bitmap that the status bar can display as the small icon. */
+    private fun makeSpeedIcon(num: String, unit: String): Icon {
+        val size = 96
+        val bmp = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bmp)
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.WHITE
+            typeface = Typeface.DEFAULT_BOLD
+            textAlign = Paint.Align.CENTER
+            textSize = 48f
+        }
+        // Draw number centered vertically a bit higher
+        canvas.drawText(num, size / 2f, size * 0.55f, paint)
+        // Draw unit smaller below
+        paint.textSize = 24f
+        canvas.drawText(unit, size / 2f, size * 0.85f, paint)
+        return Icon.createWithBitmap(bmp)
     }
 
     companion object {
