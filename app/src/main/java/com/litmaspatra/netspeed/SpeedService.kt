@@ -20,7 +20,6 @@ import android.os.IBinder
 import android.os.Looper
 import android.os.SystemClock
 import android.widget.RemoteViews
-import androidx.core.app.NotificationCompat
 import java.util.Locale
 
 class SpeedService : Service() {
@@ -99,7 +98,7 @@ class SpeedService : Service() {
         // Dynamic status‑bar icon showing download speed
         val icon = makeSpeedIcon(downNum, downUnit)
 
-        return NotificationCompat.Builder(this, CH)
+        return Notification.Builder(this, CH)
             .setSmallIcon(icon)
             .setCustomContentView(rv)
             .setContentTitle("")
@@ -108,8 +107,8 @@ class SpeedService : Service() {
             .setOnlyAlertOnce(true)
             .setShowWhen(false)
             .setContentIntent(open)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .setCategory(NotificationCompat.CATEGORY_STATUS)
+            .setPriority(Notification.PRIORITY_LOW)
+            .setCategory(Notification.CATEGORY_STATUS)
             .build()
     }
 
