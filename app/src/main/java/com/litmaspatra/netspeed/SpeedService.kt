@@ -7,18 +7,14 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
 import android.content.pm.ServiceInfo
-import android.graphics.Bitmap
-import android.graphics.Canvas
-import android.graphics.Color
-import android.graphics.Paint
-import android.graphics.Typeface
-import android.graphics.drawable.Icon
 import android.net.TrafficStats
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.os.SystemClock
+import android.widget.RemoteViews
+import androidx.core.app.NotificationCompat
 import java.util.Locale
 
 class SpeedService : Service() {
@@ -74,51 +70,36 @@ class SpeedService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
+    /** Returns a pair of (formatted number with one decimal when needed, unit string "KB/s" or "MB/s") */
     private fun fmt(b: Long): Pair<String, String> = when {
-        b >= 10_000_000 -> Pair(String.format(Locale.US, "%.0f", b / 1e6), "M")
-        b >= 1_000_000 -> Pair(String.format(Locale.US, "%.1f", b / 1e6), "M")
-        b >= 1000 -> Pair((b / 1000).toString(), "K")
-        else -> Pair(b.toString(), "B")
-    }
-
-    private fun full(b: Long): String {
-        val (n, u) = fmt(b)
-        return "$n ${u}${if (u == "B") "" else "B"}/s"
+        b >= 1_000_000 -> Pair(String.format(Locale.US, "%.1f", b / 1e6), "MB/s")
+        b >= 1000 -> Pair(String.format(Locale.US, "%.1f", b / 1e3), "KB/s")
+        else -> Pair(b.toString(), "B/s")
     }
 
     private fun build(down: Long, up: Long): Notification {
-        val (num, unit) = fmt(down)
+        val (downNum, downUnit) = fmt(down)
+        val (upNum, upUnit) = fmt(up)
+
+        // Build RemoteViews for a compact custom layout
+        val rv = RemoteViews(packageName, R.layout.notification_speed)
+        rv.setTextViewText(R.id.tvSpeed, "↓ $downNum  ↑ $upNum")
+        rv.setTextViewText(R.id.tvUnit, "$downUnit / $upUnit")
+
         val open = PendingIntent.getActivity(
             this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE
         )
-        return Notification.Builder(this, CH)
-            .setSmallIcon(icon(num, unit))
-            .setContentTitle("↓ ${full(down)}")
-            .setContentText("↑ ${full(up)}")
+
+        return NotificationCompat.Builder(this, CH)
+            .setSmallIcon(R.mipmap.ic_launcher) // app icon (pixelated logo)
+            .setCustomContentView(rv)           // only this view appears in the shade
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setShowWhen(false)
             .setContentIntent(open)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setCategory(NotificationCompat.CATEGORY_STATUS)
             .build()
-    }
-
-    // Status bar icons are alpha masks, so draw white text on a transparent bitmap.
-    private fun icon(num: String, unit: String): Icon {
-        val s = 96
-        val bmp = Bitmap.createBitmap(s, s, Bitmap.Config.ARGB_8888)
-        val c = Canvas(bmp)
-        val p = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.WHITE
-            typeface = Typeface.DEFAULT_BOLD
-            textAlign = Paint.Align.CENTER
-            textSize = 60f
-        }
-        val w = p.measureText(num)
-        if (w > s) p.textSize = 60f * s / w
-        c.drawText(num, s / 2f, 52f, p)
-        p.textSize = 36f
-        c.drawText(unit, s / 2f, 90f, p)
-        return Icon.createWithBitmap(bmp)
     }
 
     companion object {
