@@ -91,8 +91,10 @@ class SpeedService : Service() {
         )
 
         return NotificationCompat.Builder(this, CH)
-            .setSmallIcon(R.mipmap.ic_launcher) // app icon (pixelated logo)
+            .setSmallIcon(R.drawable.ic_notif) // simple white square icon
             .setCustomContentView(rv)           // only this view appears in the shade
+            .setContentTitle("")
+            .setContentText("")
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setShowWhen(false)
