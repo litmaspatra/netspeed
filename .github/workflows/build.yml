@@ -1,7 +1,7 @@
 name: Build APK
 on:
   push:
-    branches: [main]
+    branches: [main, master]
   workflow_dispatch:
 
 permissions:
@@ -19,15 +19,20 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: 8.7
-      - run: gradle assembleDebug --no-daemon
+      - run: gradle assembleRelease --no-daemon
+      - name: Check size (<1 MB)
+        run: |
+          cp app/build/outputs/apk/release/app-release.apk netspeed.apk
+          SIZE=$(stat -c%s netspeed.apk); echo "APK size: $SIZE bytes"
+          [ "$SIZE" -lt 1048576 ]
       - uses: actions/upload-artifact@v4
         with:
           name: netspeed-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: netspeed.apk
       - name: Publish to Releases
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release delete latest --yes --cleanup-tag || true
-          gh release create latest app/build/outputs/apk/debug/app-debug.apk \
-            --title "Latest build" --notes "Debug APK from commit ${GITHUB_SHA::7}"
+          gh release create latest netspeed.apk \
+            --title "Latest build" --notes "Release APK from commit ${GITHUB_SHA::7}"

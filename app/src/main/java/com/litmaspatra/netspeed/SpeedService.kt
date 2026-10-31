@@ -19,8 +19,6 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.os.SystemClock
-import android.widget.RemoteViews
-import java.util.Locale
 
 class SpeedService : Service() {
 
@@ -48,8 +46,12 @@ class SpeedService : Service() {
         super.onCreate()
         nm = getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(
-            NotificationChannel(CH, "Internet speed", NotificationManager.IMPORTANCE_LOW)
-                .apply { setShowBadge(false) }
+            NotificationChannel(CH, "Internet speed", NotificationManager.IMPORTANCE_LOW).apply {
+                setShowBadge(false)
+                setSound(null, null)
+                enableVibration(false)
+                lockscreenVisibility = Notification.VISIBILITY_SECRET
+            }
         )
     }
 
@@ -75,59 +77,42 @@ class SpeedService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
-    /** Returns a pair of (formatted number with one decimal when needed, unit string "KB/s" or "MB/s") */
-    private fun fmt(b: Long): Pair<String, String> = when {
-        b >= 1_000_000 -> Pair(String.format(Locale.US, "%.1f", b / 1e6), "MB/s")
-        b >= 1000 -> Pair(String.format(Locale.US, "%.1f", b / 1e3), "KB/s")
-        else -> Pair(b.toString(), "B/s")
-    }
-
+    // One compact line in the shade; the real display is the status bar icon.
     private fun build(down: Long, up: Long): Notification {
-        val (downNum, downUnit) = fmt(down)
-        val (upNum, upUnit) = fmt(up)
-
-        // RemoteViews for expanded shade
-        val rv = RemoteViews(packageName, R.layout.notification_speed)
-        rv.setTextViewText(R.id.tvSpeed, "↓ $downNum  ↑ $upNum")
-        rv.setTextViewText(R.id.tvUnit, "$downUnit / $upUnit")
-
+        val (num, unit) = Speed.fmt(down)
         val open = PendingIntent.getActivity(
             this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE
         )
-
-        // Dynamic status‑bar icon showing download speed
-        val icon = makeSpeedIcon(downNum, downUnit)
-
         return Notification.Builder(this, CH)
-            .setSmallIcon(icon)
-            .setCustomContentView(rv)
-            .setContentTitle("")
-            .setContentText("")
+            .setSmallIcon(icon(num, unit))
+            .setContentTitle("↓ ${Speed.full(down)}   ↑ ${Speed.full(up)}")
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setShowWhen(false)
+            .setCategory(Notification.CATEGORY_SERVICE)
+            .setVisibility(Notification.VISIBILITY_SECRET)
             .setContentIntent(open)
-            .setPriority(Notification.PRIORITY_LOW)
-            .setCategory(Notification.CATEGORY_STATUS)
             .build()
     }
 
-    /** Draw the current speed onto a bitmap that the status bar can display as the small icon. */
-    private fun makeSpeedIcon(num: String, unit: String): Icon {
-        val size = 96
-        val bmp = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(bmp)
-        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+    // Wide white-on-transparent bitmap: big number on top, big unit below.
+    // Both lines are scaled to fill the full width so "KB/s" stays readable.
+    private fun icon(num: String, unit: String): Icon {
+        val w = 160
+        val h = 96
+        val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        val c = Canvas(bmp)
+        val p = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.WHITE
-            typeface = Typeface.DEFAULT_BOLD
+            typeface = Typeface.create("sans-serif-condensed", Typeface.BOLD)
             textAlign = Paint.Align.CENTER
-            textSize = 48f
         }
-        // Draw number centered vertically a bit higher
-        canvas.drawText(num, size / 2f, size * 0.55f, paint)
-        // Draw unit smaller below
-        paint.textSize = 24f
-        canvas.drawText(unit, size / 2f, size * 0.85f, paint)
+        p.textSize = 100f
+        p.textSize = minOf(100f * w / p.measureText(num), 66f)
+        c.drawText(num, w / 2f, 54f, p)
+        p.textSize = 100f
+        p.textSize = minOf(100f * w / p.measureText(unit), 42f)
+        c.drawText(unit, w / 2f, 94f, p)
         return Icon.createWithBitmap(bmp)
     }
 
