@@ -10,23 +10,14 @@ android {
         applicationId = "com.litmaspatra.netspeed"
         minSdk = 26
         targetSdk = 34
-        versionCode = 3
-        versionName = "1.2"
-    }
-    signingConfigs {
-        create("release") {
-            storeFile = file("release.jks")
-            storePassword = "netspeed123"
-            keyAlias = "netspeed"
-            keyPassword = "netspeed123"
-        }
+        versionCode = 4
+        versionName = "1.3.0"
     }
     buildTypes {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
-            signingConfig = signingConfigs.getByName("release")
         }
     }
     dependenciesInfo {

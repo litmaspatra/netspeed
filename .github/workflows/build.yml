@@ -1,11 +1,9 @@
 name: Build APK
 on:
   push:
-    branches: [main, master]
+    branches: [main]
+  pull_request:
   workflow_dispatch:
-
-permissions:
-  contents: write
 
 jobs:
   apk:
@@ -22,17 +20,10 @@ jobs:
       - run: gradle assembleRelease --no-daemon
       - name: Check size (<1 MB)
         run: |
-          cp app/build/outputs/apk/release/app-release.apk netspeed.apk
-          SIZE=$(stat -c%s netspeed.apk); echo "APK size: $SIZE bytes"
+          cp app/build/outputs/apk/release/app-release-unsigned.apk netspeed-unsigned.apk
+          SIZE=$(stat -c%s netspeed-unsigned.apk); echo "APK size: $SIZE bytes"
           [ "$SIZE" -lt 1048576 ]
       - uses: actions/upload-artifact@v4
         with:
-          name: netspeed-apk
-          path: netspeed.apk
-      - name: Publish to Releases
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release delete latest --yes --cleanup-tag || true
-          gh release create latest netspeed.apk \
-            --title "Latest build" --notes "Release APK from commit ${GITHUB_SHA::7}"
+          name: netspeed-unsigned-apk
+          path: netspeed-unsigned.apk

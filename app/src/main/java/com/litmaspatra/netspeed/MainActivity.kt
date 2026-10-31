@@ -13,6 +13,7 @@ import android.os.Looper
 import android.os.SystemClock
 import android.provider.Settings
 import android.view.Gravity
+import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.LinearLayout
@@ -86,9 +87,23 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun serviceOn(): Boolean {
-        val s = Settings.Secure.getString(contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES) ?: ""
-        return s.contains(packageName) && s.contains("SpeedOverlayService")
+    private lateinit var grant: Button
+    private lateinit var toggle: Button
+    private val prefs get() = getSharedPreferences("p", MODE_PRIVATE)
+
+    private fun refresh() {
+        val ok = Settings.canDrawOverlays(this)
+        val on = prefs.getBoolean("on", true)
+        grant.visibility = if (ok) View.GONE else View.VISIBLE
+        toggle.visibility = if (ok) View.VISIBLE else View.GONE
+        toggle.text = if (on) "Stop" else "Start"
+        status.text = when {
+            !ok -> "Needs the Display over other apps permission"
+            on -> "Running - speed is shown over the status bar"
+            else -> "Stopped"
+        }
+        val svc = Intent(this, SpeedService::class.java)
+        if (ok && on) startForegroundService(svc) else stopService(svc)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -115,11 +130,14 @@ class MainActivity : Activity() {
             addView(up)
         }
 
-        val enable = button("Turn on in Accessibility", Color.parseColor("#3DDC84"), Color.parseColor("#0E1116"))
-        val appInfo = button("App info (allow restricted settings)", Color.parseColor("#21262D"), Color.WHITE)
-        enable.setOnClickListener { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
-        appInfo.setOnClickListener {
-            startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
+        grant = button("Allow display over other apps", Color.parseColor("#3DDC84"), Color.parseColor("#0E1116"))
+        grant.setOnClickListener {
+            startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
+        }
+        toggle = button("", Color.parseColor("#3DDC84"), Color.parseColor("#0E1116"))
+        toggle.setOnClickListener {
+            prefs.edit().putBoolean("on", !prefs.getBoolean("on", true)).apply()
+            refresh()
         }
 
         val content = LinearLayout(this).apply {
@@ -131,8 +149,8 @@ class MainActivity : Activity() {
             addView(card, LinearLayout.LayoutParams(-1, -2))
             addView(slider("Position from right edge", "pos", 0, 600, 250, " dp"))
             addView(slider("Size", "size", 50, 140, 100, " %"))
-            addView(enable)
-            addView(appInfo)
+            addView(grant)
+            addView(toggle)
         }
         setContentView(ScrollView(this).apply {
             setBackgroundColor(Color.parseColor("#0E1116"))
@@ -142,8 +160,7 @@ class MainActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
-        status.text = if (serviceOn()) "Active — speed is drawn over the status bar"
-        else "Off — turn on NetSpeed in Accessibility"
+        refresh()
         lastRx = TrafficStats.getTotalRxBytes()
         lastTx = TrafficStats.getTotalTxBytes()
         lastT = SystemClock.elapsedRealtime()
