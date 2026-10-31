@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="a11y_desc">Shows live internet speed in the status bar. It does not read your screen.</string>
+</resources>
